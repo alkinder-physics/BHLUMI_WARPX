@@ -13,6 +13,7 @@ FCC-ee beam-beam simulation and tracks the outgoing e⁺e⁻ through the beam fi
 | `benchmarks/make_inputs.py` | writes benchmark inputs and variants of any existing input file |
 | `benchmarks/headon_round/inputs_headon_round.txt` | default benchmark input |
 | `benchmarks/submit_benchmark.sh` | Slurm job for one benchmark run (no external field) |
+| `docs/headon_benchmark_theory.pdf` | two-page theory of the head-on test (LaTeX source alongside) |
 | `notebooks/01_headon_round_benchmark.ipynb` | example 1: theory, checks, run commands and comparison |
 | `notebooks/make_inputs.ipynb` | generates scans of input files with a manifest |
 | `examples/fcc_z_boxscan_template.txt` | FCC-ee Z box-scan input, the base for scans of the real configuration |
@@ -95,7 +96,7 @@ deflection of a Bhabha lepton at polar angle θ, averaged over the luminous regi
 
     <Δθ>(θ) = − N r_e / (√π γ′ θ σ_z) · ln(1 + θ²σ_z² / (3σ²))
 
-The derivation is in `notebooks/01_headon_round_benchmark.ipynb`. For the default input (45.6 GeV,
+The derivation is in `docs/headon_benchmark_theory.pdf` and in `notebooks/01_headon_round_benchmark.ipynb`. For the default input (45.6 GeV,
 N = 2×10¹⁰, σ = 10 µm, σ_z = 1 mm) this is −15.2, −14.5 and −13.2 µrad at 60, 70 and 90 mrad.
 
 The theory reads every number from the WarpX input file, so editing the parameters in the notebook (or the

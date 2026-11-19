@@ -4,3 +4,8 @@ __pycache__/
 *.lhe
 generated_inputs/
 .ipynb_checkpoints/
+docs/*.aux
+docs/*.log
+docs/*.fls
+docs/*.fdb_latexmk
+docs/*.out

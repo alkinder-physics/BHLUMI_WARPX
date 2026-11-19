@@ -1,0 +1,112 @@
+\documentclass[11pt]{article}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{parskip}
+
+\title{Head-on test of BHLUMI + WarpX:\\ the beam-beam kick on a Bhabha lepton}
+\author{BHLUMI\_WARPX repository, \texttt{benchmarks/} and \texttt{notebooks/01\_headon\_round\_benchmark.ipynb}}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{1. The idea}
+
+BHLUMI produces Bhabha events $e^+e^-\to e^+e^-(+n\gamma)$ for a perfect head-on collision. WarpX injects each
+event at a vertex inside the colliding bunches and tracks the outgoing $e^\pm$ through the fields of the
+\emph{opposite} bunch, which pull them slightly toward the beam axis. That kick is what biases the luminosity
+measurement at FCC-ee.
+
+To check the injection and tracking, we pick beams simple enough that the average kick can be computed by hand:
+\begin{itemize}
+  \item round Gaussian beams, $\sigma_x=\sigma_y=\sigma$, length $\sigma_z$, $N$ particles each, energy $E$ ($\gamma$);
+  \item head-on (no crossing angle), no external field;
+  \item rigid bunches: disruption $D = 2Nr_e\sigma_z/(\gamma\sigma^2)\ll 1$;
+  \item no hourglass (zero emittance), no energy spread, no beamstrahlung (QED off).
+\end{itemize}
+The lepton is ultrarelativistic, leaves at a small polar angle $\theta$ and azimuth $\varphi$, and its own
+bunch does not act on it (it moves almost parallel to the lepton, so its $E$ and $B$ forces cancel).
+
+\section*{2. Derivation}
+
+\textbf{Field.} The $e^+$ bunch moves at $-c$ with line density $\lambda(\zeta)=Ne\,g(\zeta)$,
+$g(\zeta)=e^{-\zeta^2/2\sigma_z^2}/(\sqrt{2\pi}\,\sigma_z)$. Its field is transverse:
+\begin{equation}
+\mathbf E_\perp=\frac{\lambda(\zeta)}{2\pi\varepsilon_0}\,\frac{\mathbf r}{r^2}\left(1-e^{-r^2/2\sigma^2}\right),
+\qquad c\mathbf B_\perp=\hat z\times\mathbf E_\perp .
+\end{equation}
+
+\textbf{Force.} For a lepton moving at $+c$, the electric and magnetic forces add: $\mathbf F_\perp=2q\mathbf E_\perp$.
+
+\textbf{Path.} Lepton and bunch approach at $2c$. After the lepton has crossed a length $u=\zeta-\zeta_0$ of the
+bunch, $t=u/2c$ and its transverse position is $\mathbf r(u)=\mathbf r_0+\hat n\,\theta u/2$, with
+$\hat n=(\cos\varphi,\sin\varphi)$.
+
+\textbf{Kick for one event.} Integrating the force along the path, projecting on $\hat n$ and dividing by
+$p=\gamma' m c$ (with $r_e=e^2/4\pi\varepsilon_0 mc^2$):
+\begin{equation}
+\Delta\theta=-\frac{2Nr_e}{\gamma'}\int_0^\infty g(\zeta_0+u)\,
+\frac{\mathbf r\cdot\hat n}{r^2}\left(1-e^{-r^2/2\sigma^2}\right)du .
+\end{equation}
+
+\textbf{Average over the transverse vertex.} Vertices follow the product of the two beam densities, so
+$\mathbf r_0$ is Gaussian with variance $\sigma^2/2$ per axis. Averaging the field point over that offset gives the
+field of a Gaussian with $\sigma_{\rm eff}^2=\sigma^2+\sigma^2/2=\tfrac32\sigma^2$:
+\begin{equation}
+\left\langle\frac{\mathbf r\cdot\hat n}{r^2}\left(1-e^{-r^2/2\sigma^2}\right)\right\rangle
+=\frac{2}{\theta u}\left(1-e^{-\theta^2u^2/12\sigma^2}\right).
+\end{equation}
+
+\textbf{Average over the longitudinal vertex.} $\zeta_0\sim g$, and
+$\int g(\zeta_0)\,g(\zeta_0+u)\,d\zeta_0=e^{-u^2/4\sigma_z^2}/(2\sqrt\pi\,\sigma_z)$. Then
+\begin{equation}
+\langle\Delta\theta\rangle=-\frac{2Nr_e}{\sqrt\pi\,\gamma'\theta\,\sigma_z}
+\int_0^\infty\frac{e^{-bu^2}-e^{-(a+b)u^2}}{u}\,du,
+\qquad a=\frac{\theta^2}{12\sigma^2},\quad b=\frac{1}{4\sigma_z^2},
+\end{equation}
+and this (Frullani) integral equals $\tfrac12\ln\!\big((a+b)/b\big)$.
+
+\section*{3. Result}
+
+\begin{equation}
+\boxed{\;\langle\Delta\theta\rangle(\theta)=-\frac{N r_e}{\sqrt{\pi}\,\gamma'\,\theta\,\sigma_z}
+\ln\!\left(1+\frac{\theta^2\sigma_z^2}{3\sigma^2}\right)\;}
+\end{equation}
+\begin{itemize}
+  \item The minus sign: the lepton is pulled toward the axis. The same formula holds for the $e^+$ ($\theta$ from $-z$).
+  \item It does not depend on $\varphi$ for round beams.
+  \item It scales as $1/\gamma'$, the energy of the \emph{outgoing} lepton, so it is evaluated per event with
+        BHLUMI's lepton energy.
+  \item Limits: $\theta\sigma_z\ll\sigma$ gives a thin lens, $\propto\theta$;
+        $\theta\sigma_z\gg\sigma$ gives a line charge, $\propto\ln\theta/\theta$.
+\end{itemize}
+
+\textbf{Default input} (\texttt{benchmarks/headon\_round/inputs\_headon\_round.txt}): $E=45.6$\,GeV,
+$N=2\times10^{10}$, $\sigma=10\,\mu$m, $\sigma_z=1$\,mm, so $D=0.013$ and
+$\mathcal L_{\rm BX}=N^2/4\pi\sigma^2=3.18\times10^{29}\,\mathrm{m^{-2}}$.
+
+\begin{center}
+\begin{tabular}{cccccc}
+\toprule
+$\theta$ [mrad] & 40 & 60 & 80 & 100 & 120 \\
+$\langle\Delta\theta\rangle$ [$\mu$rad] & $-16.44$ & $-15.23$ & $-13.84$ & $-12.60$ & $-11.56$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+A direct numerical average over vertices and trajectories agrees within its statistical error
+(\texttt{bhabha\_theory.kick\_mc}); the per-event spread is about 7--9\,$\mu$rad rms.
+
+\section*{4. What the test compares}
+
+For each injected event, WarpX gives the lepton's final angle; the test compares
+$\Delta\theta=\theta_{\rm out}-\theta_0$, averaged in bins of $\theta_0$, with the formula above evaluated for
+the same events. The theory reads every number from the WarpX input file, so the two cannot drift apart. Before
+comparing, the notebook checks that the file meets the assumptions: round, head-on, $D<0.05$, no emittance, no QED,
+no external field, at least 5 cells per $\sigma$, at least 10 steps over the cutoff length $2\sqrt3\,\sigma/\theta$,
+a box wide enough that truncating the kick costs $<10^{-3}$, and a run long enough for the last vertex.
+
+Only after this test agrees do we add, one at a time, beamstrahlung, flat beams and the FCC-ee crossing angle.
+
+\end{document}
