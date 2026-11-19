@@ -10,7 +10,8 @@ Steps (all ranks do the same, with the same random seed, so no communication is 
      tilted, hourglass-focused Gaussian bunches, and estimate the luminosity per crossing L_BX
   4. take N BHLUMI events (lhe_to_npz.py output), mirror z (BHLUMI has the e- beam along -z, WarpX beam1
      e- along +z), give each the weight  sigma * L_BX / N
-  5. run WarpX through pywarpx; before every step, add the events whose vertex time falls in that step
+  5. run WarpX through pywarpx (load_inputs_file initializes it; init() only for older pywarpx); before
+     every step, add the events whose vertex time falls in that step
   Photons are not tracked (they are not deflected); they are written with their vertices to
   bhabha_injected.npz together with everything that was injected.
 
@@ -198,6 +199,17 @@ def _host_list(arrs):
     return np.concatenate(out) if out else np.array([])
 
 
+def _initialized_by_load(warpx, libwarpx):
+    """True if warpx.load_inputs_file() has already initialized WarpX."""
+    if libwarpx is not None and getattr(libwarpx, "initialized", False):
+        return True
+    import inspect
+    try:
+        return "libwarpx.initialize" in inspect.getsource(type(warpx).load_inputs_file)
+    except (OSError, TypeError):
+        return False
+
+
 def beam1_tilt_sign(pcs):
     """Sign of d<x>/dz of beam1 as WarpX initialised it (summed over MPI ranks when mpi4py is there)."""
     pc = pcs.ParticleContainerWrapper("beam1")
@@ -266,6 +278,8 @@ def main():
             warpx, callbacks, pcs, libwarpx = warpx_api()
             print("[check] pywarpx found:", warpx.__class__.__module__)
             print("[check] warpx.load_inputs_file:", hasattr(warpx, "load_inputs_file"))
+            print("[check] load_inputs_file initializes WarpX itself (so init() is skipped):",
+                  _initialized_by_load(warpx, libwarpx))
             print("[check] callbacks.installbeforestep:", hasattr(callbacks, "installbeforestep"))
             print("[check] add_particles doc:\n", pcs.ParticleContainerWrapper.add_particles.__doc__)
             print("[check] add_particles takes proper velocity u = gamma*v [m/s]: this driver passes "
@@ -334,7 +348,11 @@ def main():
         cursor["i"] = i1; cursor["n_added"] += i1 - i0
 
     callbacks.installbeforestep(inject)
-    warpx.init()
+    # In current pywarpx, load_inputs_file() already initializes AMReX and WarpX (it calls
+    # libwarpx.initialize); calling warpx.init() as well aborts with "ParmParse::Initialize(): already
+    # initialized". Older pywarpx only parsed the file, and then init() is still needed.
+    if not _initialized_by_load(warpx, libwarpx):
+        warpx.init()
     warpx.evolve()
     if rank0:
         late = len(t_s) - cursor["i"]
