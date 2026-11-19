@@ -9,8 +9,16 @@ FCC-ee beam-beam simulation and tracks the outgoing e⁺e⁻ through the beam fi
 | `lhe_to_npz.py` | converts BHLUMI's `out.lhe` to `events.npz` |
 | `wx_bhabha.py` | runs WarpX through `pywarpx` and injects the events at sampled vertices |
 | `submit_wx_bhabha.sh` | Slurm job for one run on Perlmutter GPUs |
+| `benchmarks/bhabha_theory.py` | analytic prediction, validity checks and run analysis for the head-on benchmark, all read from the input file |
+| `benchmarks/make_inputs.py` | writes benchmark inputs and variants of any existing input file |
+| `benchmarks/headon_round/inputs_headon_round.txt` | default benchmark input |
+| `benchmarks/submit_benchmark.sh` | Slurm job for one benchmark run (no external field) |
+| `notebooks/01_headon_round_benchmark.ipynb` | example 1: theory, checks, run commands and comparison |
+| `notebooks/make_inputs.ipynb` | generates scans of input files with a manifest |
+| `examples/fcc_z_boxscan_template.txt` | FCC-ee Z box-scan input, the base for scans of the real configuration |
 
 Requirements: `gfortran` (`PrgEnv-gnu`), `python3` with NumPy, and a WarpX GPU build with `pywarpx`.
+The notebooks also need Jupyter, Matplotlib and `openpmd_api` (for reading WarpX output).
 
 ```bash
 git clone https://github.com/alkinder-physics/BHLUMI_WARPX.git $HOME/src/bhlumi-warpx
@@ -79,6 +87,38 @@ Limits of version 1:
 - At 40–120 mrad a Bhabha leaves a box of ±13 µm half-height within 1–2 steps, so its beam-beam
   deflection is truncated. Use a taller box.
 
+## 4. Example 1: analytic benchmark (head-on round beams)
+
+Before the FCC-ee configuration, check the injection and tracking against a closed-form result. For round
+Gaussian beams (σ_x = σ_y = σ), head-on, rigid, with no hourglass, beamstrahlung or external field, the
+deflection of a Bhabha lepton at polar angle θ, averaged over the luminous region, is
+
+    <Δθ>(θ) = − N r_e / (√π γ′ θ σ_z) · ln(1 + θ²σ_z² / (3σ²))
+
+The derivation is in `notebooks/01_headon_round_benchmark.ipynb`. For the default input (45.6 GeV,
+N = 2×10¹⁰, σ = 10 µm, σ_z = 1 mm) this is −15.2, −14.5 and −13.2 µrad at 60, 70 and 90 mrad.
+
+The theory reads every number from the WarpX input file, so editing the parameters in the notebook (or the
+file itself) changes the input and the prediction together. The notebook also checks that the file meets the
+formula's assumptions: round, head-on, disruption < 0.05, no emittance, no QED, no external fields, enough
+transverse and longitudinal resolution, a box wide enough that truncating the kick costs < 10⁻³, and a run
+long enough for the last vertex.
+
+```bash
+cd $HOME/src/bhlumi-warpx
+sbatch -q debug -t 00:15:00 --export=ALL,NINJ=5000,TAG=headon_round_test benchmarks/submit_benchmark.sh
+sbatch --export=ALL,NINJ=100000 benchmarks/submit_benchmark.sh
+```
+
+Output goes to `$PSCRATCH/runs/warpx/bhabha_benchmark/<TAG>/seed_<SEED>/`. The script runs
+`wx_bhabha.py --tag-weights`, which sets each test particle's weight to its event index + 1 so that every
+lepton found at a wall (or still in the box at the end) can be matched to its BHLUMI event. The physical
+weight stays in `bhabha_injected.npz`. Then set `RUN_DIR` in Section 5 of the notebook.
+
+`notebooks/make_inputs.ipynb` writes scans to `generated_inputs/` (git-ignored) with a `manifest.csv`:
+benchmark variants with their predicted kick and any failed checks, and variants of an existing input file
+(by default the box-scan input without its external solenoid field).
+
 ## Troubleshooting
 
 | Symptom | Fix |
@@ -87,6 +127,7 @@ Limits of version 1:
 | `ERROR: build failed` | see `$HOME/src/bhlumi/build.log` |
 | `ERROR: no seed file` | pick a seed listed in the error |
 | `Could not find the geometry.dims` on ranks ≠ 0 | old `wx_bhabha.py`; pull the current version |
+| notebook: `weights are not event tags` | the run was made without `--tag-weights`; use `benchmarks/submit_benchmark.sh` |
 
 ## Reference
 

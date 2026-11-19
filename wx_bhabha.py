@@ -18,6 +18,7 @@ Usage
   python3 wx_bhabha.py --check  --inputs wx_tier1_template.txt --events events.npz      # no WarpX run
   srun ... python3 wx_bhabha.py --inputs wx_tier1_template.txt --events events.npz \\
            --n-inject 20000 --seed 1 --set my_constants.Bz=2 --set warpx.random_seed=1
+  benchmarks: add --tag-weights so each scraped lepton can be matched to its injected event
 
 Version 1 limits: events keep their nominal energies (no beamstrahlung rescaling yet); the bunch model for
 the vertices is analytic (Gaussian + hourglass + tilt), not the simulated, disrupted bunches.
@@ -229,6 +230,9 @@ def main():
     ap.add_argument("--set", action="append", default=[], metavar="KEY=VALUE", help="input override")
     ap.add_argument("--out", default=".", help="run directory")
     ap.add_argument("--check", action="store_true", help="check the setup and sampling, do not run WarpX")
+    ap.add_argument("--tag-weights", action="store_true",
+                    help="set each test particle's weight to (event index + 1) so the output can be matched "
+                         "event by event (benchmarks); the physical weight stays in bhabha_injected.npz")
     a = ap.parse_args()
 
     overrides = [tuple(s.split("=", 1)) for s in a.set]
@@ -291,7 +295,10 @@ def main():
     t_s, cursor = t[order], {"i": 0, "n_added": 0, "step": 0}
     uxe, uye, uze = u_from_p(ele[order]); uxp, uyp, uzp = u_from_p(pos[order])
     xs_, ys_, zs_ = x[order], y[order], z[order]
-    wts = np.full(len(t_s), w)
+    wts = (order + 1).astype(np.float64) if a.tag_weights else np.full(len(t_s), w)
+    if rank0 and a.tag_weights:
+        print("[wx_bhabha] --tag-weights: test-particle weight = event index + 1 (physical weight "
+              f"{w:.4g} is in bhabha_injected.npz)")
 
     def inject():
         if "tilt" not in cursor:

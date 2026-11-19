@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 *.npz
 *.lhe
+generated_inputs/
+.ipynb_checkpoints/
