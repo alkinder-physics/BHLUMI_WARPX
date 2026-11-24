@@ -101,6 +101,8 @@ geometry.dims = 3
 geometry.prob_lo = -0.5*Lx -0.5*Ly -0.5*Lz
 geometry.prob_hi =  0.5*Lx  0.5*Ly  0.5*Lz
 amr.max_level = 0
+# a few large boxes per GPU (the default, 64, gives 256 boxes per GPU)
+amr.max_grid_size = 256
 
 boundary.field_lo = open open open
 boundary.field_hi = open open open

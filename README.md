@@ -128,7 +128,15 @@ benchmark variants with their predicted kick and any failed checks, and variants
 | `ERROR: build failed` | see `$HOME/src/bhlumi/build.log` |
 | `ERROR: no seed file` | pick a seed listed in the error |
 | `Could not find the geometry.dims` on ranks ≠ 0 | old `wx_bhabha.py`; pull the current version |
+| `CUDA error 700 ... illegal memory access`, profiler stack ending in `DifferentialLuminosity` | race in WarpX's `DifferentialLuminosity` (no stream sync between boxes); run with `CUDA_LAUNCH_BLOCKING=1` or patch WarpX (see below) |
 | notebook: `weights are not event tags` | the run was made without `--tag-weights`; use `benchmarks/submit_benchmark.sh` |
+
+### WarpX patch for the `DifferentialLuminosity` crash
+
+In `Source/Diagnostics/ReducedDiags/DifferentialLuminosity.cpp`, the per-box particle bins are freed while the
+luminosity kernel may still be reading them. Add `amrex::Gpu::streamSynchronize();` right after the
+`amrex::For( n_independent_pairs, ... );` loop, inside the `MFIter` loop, and rebuild. Until then, add
+`CUDA_LAUNCH_BLOCKING=1` to the job's `--export` list (about 1.5x slower).
 
 ## Reference
 

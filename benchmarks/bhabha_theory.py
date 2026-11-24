@@ -289,11 +289,19 @@ def _read_species(diag_root, species):
 
 
 def luminosity_from_reduced(run_dir, p, name="DiffLum_beam1_beam2"):
-    """Total luminosity [m^-2] from WarpX's DifferentialLuminosity reduced diagnostic (last row), or None."""
+    """Total luminosity [m^-2] from WarpX's DifferentialLuminosity reduced diagnostic (last row), or None.
+
+    Newer WarpX writes a final `total_luminosity(m^-2)` column after the dL/dE bins; use it directly when
+    present (it must not be multiplied by the bin width). Older files only have the bins.
+    """
     path = os.path.join(run_dir, "diags", "reducedfiles", f"{name}.txt")
     if not os.path.isfile(path):
         return None
+    with open(path) as f:
+        header = f.readline()
     rows = np.atleast_2d(np.loadtxt(path))
+    if "total_luminosity" in header:
+        return float(rows[-1, -1])
     dE = p.c.get("bin_size_1d")
     if dE is None:
         return None
