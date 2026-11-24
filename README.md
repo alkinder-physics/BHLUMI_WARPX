@@ -16,6 +16,7 @@ FCC-ee beam-beam simulation and tracks the outgoing e⁺e⁻ through the beam fi
 | `docs/headon_benchmark_theory.pdf` | two-page theory of the head-on test (LaTeX source alongside) |
 | `notebooks/01_headon_round_benchmark.ipynb` | example 1: theory, checks, run commands and comparison |
 | `notebooks/02_tier0_checks.ipynb` | the Tier 0 compatibility tests, one plot per test |
+| `notebooks/03_tier1_checks.ipynb` | Tier 1 bookkeeping checks on a finished benchmark run |
 | `notebooks/make_inputs.ipynb` | generates scans of input files with a manifest |
 | `examples/fcc_z_boxscan_template.txt` | FCC-ee Z box-scan input, the base for scans of the real configuration |
 
@@ -133,6 +134,8 @@ python3 tests/tier0_checks.py --compare $PSCRATCH/bhlumi/fcc_z/seed_3 \
 ```
 
 `notebooks/02_tier0_checks.ipynb` walks through the same tests with one plot each.
+`notebooks/03_tier1_checks.ipynb` checks a finished benchmark run: every event out once, run length, vertices,
+luminosity, weights, and a purely radial kick (tests C1, C2, C5-C8, E7).
 
 ## Troubleshooting
 
