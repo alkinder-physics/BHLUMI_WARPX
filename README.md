@@ -120,6 +120,17 @@ weight stays in `bhabha_injected.npz`. Then set `RUN_DIR` in Section 5 of the no
 benchmark variants with their predicted kick and any failed checks, and variants of an existing input file
 (by default the box-scan input without its external solenoid field).
 
+## Compatibility tests
+
+`tests/tier0_checks.py` runs the Tier 0 tests of the compatibility test plan (generator, conversion, frames,
+vertex sampler; no WarpX run, about a minute on a login node):
+
+```bash
+python3 tests/tier0_checks.py                                        # seed_2 sample + head-on input
+python3 tests/tier0_checks.py --compare $PSCRATCH/bhlumi/fcc_z/seed_3 \
+        --fcc-inputs examples/fcc_z_boxscan_template.txt            # adds A8 and B6
+```
+
 ## Troubleshooting
 
 | Symptom | Fix |
