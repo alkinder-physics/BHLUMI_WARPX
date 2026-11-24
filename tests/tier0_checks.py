@@ -160,14 +160,16 @@ def check_conversion(ev, evfile, sqrt_s):
     report("B1", dp < 1e-5 and dE < 1e-5,
            f"per-event sum: max |sum p| / sqrt(s) = {dp:.2g}, max |sum E - {np.median(tot[:, 3]):.6g} GeV| / sqrt(s) = {dE:.2g}")
 
-    def offshell(p4, m):
-        return np.abs(p4[:, 3] ** 2 - (p4[:, :3] ** 2).sum(1) - m ** 2) / p4[:, 3] ** 2
-    mlep = max(offshell(ele, M_E_GEV).max(), offshell(pos, M_E_GEV).max())
-    mph = offshell(ph, 0.0).max() if len(ph) else 0.0
-    emin = min(ele[:, 3].min(), pos[:, 3].min())
-    report("B2", mlep < 1e-9 and mph < 1e-9,
-           f"max |E^2 - p^2 - m^2| / E^2: leptons {mlep:.2g} (m = m_e), photons {mph:.2g}; "
-           f"softest lepton {emin * 1e3:.3g} MeV")
+    def m2(p4):
+        return p4[:, 3] ** 2 - (p4[:, :3] ** 2).sum(1)
+    lep = np.concatenate([ele, pos])
+    soft = lep[lep[:, 3] < 1.0]                      # mass is only measurable where m^2/E^2 is not tiny
+    m_gen = math.sqrt(np.median(m2(soft))) if len(soft) else M_E_GEV
+    off = np.abs(m2(lep) - m_gen ** 2) / lep[:, 3] ** 2
+    mph = (np.abs(m2(ph)) / ph[:, 3] ** 2).max() if len(ph) else 0.0
+    report("B2", off.max() < 1e-9 and mph < 1e-9 and abs(m_gen / M_E_GEV - 1) < 1e-3,
+           f"lepton mass from {len(soft)} sub-GeV leptons: {m_gen * 1e3:.6f} MeV (PDG {M_E_GEV * 1e3:.6f}, "
+           f"{100 * (m_gen / M_E_GEV - 1):+.3f} %); max |E^2 - p^2 - m^2| / E^2 = {off.max():.2g}; photons {mph:.2g}")
 
     ux, uy, uz = wx.u_from_p(ele[:1000])
     u = np.sqrt(ux ** 2 + uy ** 2 + uz ** 2) / wx.CLIGHT
@@ -184,15 +186,14 @@ def check_conversion(ev, evfile, sqrt_s):
     pick = np.random.default_rng(1).choice(len(ele), size=n, replace=False)   # same draw as prepare_events
     flip = np.array([1.0, 1.0, -1.0, 1.0])
     exact = np.array_equal(e2, ele[pick] * flip) and np.array_equal(p2, pos[pick] * flip)
-    hard_e, hard_p = e2[:, 3] > 1.0, p2[:, 3] > 1.0
-    fwd = np.all(e2[hard_e, 2] > 0) and np.all(p2[hard_p, 2] < 0)
-    back = np.sum(e2[:, 2] <= 0) + np.sum(p2[:, 2] >= 0)
-    report("B4", exact and fwd,
-           f"mirroring is an exact p_z sign flip: {exact}; every lepton above 1 GeV moves with its beam "
-           f"(e- along +z, e+ along -z): {fwd}; {back} of {2 * n} leptons go backwards, all below 1 GeV "
-           f"(very hard radiative events)" if fwd else
-           f"mirroring exact: {exact}; leptons above 1 GeV moving against their beam: "
-           f"{np.sum(e2[hard_e, 2] <= 0) + np.sum(p2[hard_p, 2] >= 0)}")
+    pr = e2 + p2
+    v2 = 1 - (pr[:, 3] ** 2 - (pr[:, :3] ** 2).sum(1)) / sqrt_s ** 2
+    back = (e2[:, 2] <= 0) | (p2[:, 2] >= 0)       # an event with a lepton moving against its beam
+    vmin_back = v2[back].min() if back.any() else float("nan")
+    report("B4", exact and (not back.any() or vmin_back > 0.5),
+           f"mirroring is an exact p_z sign flip: {exact}; {back.sum()} of {n} events have a lepton moving "
+           f"against its beam" + (f", all with v = 1 - s'/s > {vmin_back:.3f} (the lepton pair recoils from a "
+                                  f"near-beam-energy photon)" if back.any() else ""))
     tot2 = event_sums(e2.copy(), p2, ph2, phe2)
     dp2 = np.linalg.norm(tot2[:, :3], axis=1).max() / sqrt_s
     report("B5", dp2 < 1e-5, f"injected events in the WarpX frame: max |sum p| / sqrt(s) = {dp2:.2g} "
