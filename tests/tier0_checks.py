@@ -58,25 +58,30 @@ def check_generator(ev, run_dir, th1, th2, nmax_lhe):
                                 f"({100 * d:+.2f} %; few % expected from radiative corrections)")
 
     te, tp = polar(ele, -1), polar(pos, +1)
-    th = np.concatenate([te, tp])
-    th_in = th[(th >= th1) & (th <= th2)]
-    # maximum-likelihood exponent of dN/dtheta ~ theta^n truncated to [th1, th2]
-    grid = np.linspace(-4, -2, 2001)
-    lsum = np.log(th_in).sum()
-    def norm(k):
-        return np.log((th2 ** (k + 1) - th1 ** (k + 1)) / (k + 1))
-    ll = np.array([k * lsum - len(th_in) * norm(k) for k in grid])
-    k_hat = grid[np.argmax(ll)]
-    curv = (ll[np.argmax(ll) + 1] - 2 * ll.max() + ll[np.argmax(ll) - 1]) / (grid[1] - grid[0]) ** 2
-    k_err = 1 / math.sqrt(-curv) if curv < 0 else float("nan")
-    edges = np.array([th1, 0.074, 0.108, th2])
-    F = lambda x: (1 / th1 ** 2 - 1 / x ** 2) / (1 / th1 ** 2 - 1 / th2 ** 2)
-    pred = np.diff([F(e) for e in edges])
-    obs = np.histogram(th_in, edges)[0] / len(th_in)
-    report("A3", abs(k_hat + 3) < max(0.05, 3 * k_err),
-           f"dN/dtheta ~ theta^n, n = {k_hat:.3f} +- {k_err:.3f} (Born -3); fractions "
-           f"{' / '.join(f'{o:.3f}' for o in obs)} vs {' / '.join(f'{p:.3f}' for p in pred)}; "
-           f"{100 * (1 - len(th_in) / len(th)):.1f} % of leptons outside the window")
+    pair = ele + pos
+    v = 1 - (pair[:, 3] ** 2 - (pair[:, :3] ** 2).sum(1)) / s      # 1 - s'/s from the lepton pair
+
+    def fit(th):
+        th = th[(th >= th1) & (th <= th2)]
+        grid = np.linspace(-4, -2, 4001)
+        lsum = np.log(th).sum()
+        ll = np.array([k * lsum - len(th) * np.log((th2 ** (k + 1) - th1 ** (k + 1)) / (k + 1)) for k in grid])
+        i = np.argmax(ll)
+        curv = (ll[i + 1] - 2 * ll[i] + ll[i - 1]) / (grid[1] - grid[0]) ** 2
+        return grid[i], 1 / math.sqrt(-curv)
+
+    # Soft-photon exponentiation: d sigma(v < v_cut) ~ theta^-3 * v_cut^beta_t, beta_t = (4 alpha/pi)(ln|t|/m^2 - 1)
+    # with |t| = s theta^2/4, so the slope becomes n = -3 + (8 alpha/pi) ln v_cut.
+    lines, ok = [], True
+    for vc in (0.01, 0.1):
+        sel = v < vc
+        k, dk = fit(np.concatenate([te[sel], tp[sel]]))
+        pred = -3 + 8 * ALPHA / math.pi * math.log(vc)
+        ok &= abs(k - pred) < 0.05
+        lines.append(f"v < {vc:g} ({100 * sel.mean():.0f} % of events): n = {k:.3f} +- {dk:.3f} vs {pred:.3f}")
+    kall, dkall = fit(np.concatenate([te, tp]))
+    report("A3", ok, "dN/dtheta ~ theta^n; " + "; ".join(lines)
+           + f". Full sample n = {kall:.3f} (hard radiation up to v = {v.max():.4f} bends lepton angles; not Born)")
 
     nb = 36
     h = np.histogram(azimuth(ele), nb, (-math.pi, math.pi))[0]
@@ -155,12 +160,14 @@ def check_conversion(ev, evfile, sqrt_s):
     report("B1", dp < 1e-5 and dE < 1e-5,
            f"per-event sum: max |sum p| / sqrt(s) = {dp:.2g}, max |sum E - {np.median(tot[:, 3]):.6g} GeV| / sqrt(s) = {dE:.2g}")
 
-    def offshell(p4):
-        return np.abs(p4[:, 3] ** 2 - (p4[:, :3] ** 2).sum(1)) / p4[:, 3] ** 2
-    mlep = max(offshell(ele).max(), offshell(pos).max())
-    mph = offshell(ph).max() if len(ph) else 0.0
-    report("B2", mlep < 1e-6 and mph < 1e-6,
-           f"max |E^2 - p^2| / E^2: leptons {mlep:.2g}, photons {mph:.2g} (m_e^2/E^2 = {(M_E_GEV / 45.6) ** 2:.2g})")
+    def offshell(p4, m):
+        return np.abs(p4[:, 3] ** 2 - (p4[:, :3] ** 2).sum(1) - m ** 2) / p4[:, 3] ** 2
+    mlep = max(offshell(ele, M_E_GEV).max(), offshell(pos, M_E_GEV).max())
+    mph = offshell(ph, 0.0).max() if len(ph) else 0.0
+    emin = min(ele[:, 3].min(), pos[:, 3].min())
+    report("B2", mlep < 1e-9 and mph < 1e-9,
+           f"max |E^2 - p^2 - m^2| / E^2: leptons {mlep:.2g} (m = m_e), photons {mph:.2g}; "
+           f"softest lepton {emin * 1e3:.3g} MeV")
 
     ux, uy, uz = wx.u_from_p(ele[:1000])
     u = np.sqrt(ux ** 2 + uy ** 2 + uz ** 2) / wx.CLIGHT
@@ -174,9 +181,18 @@ def check_conversion(ev, evfile, sqrt_s):
     rng = np.random.default_rng(1)
     n = min(20000, len(ele))
     e2, p2, ph2, phe2, w, _ = wx.prepare_events(evfile, n, rng, 1.0)
-    report("B4", np.all(e2[:, 2] > 0) and np.all(p2[:, 2] < 0),
-           f"after mirroring: {np.mean(e2[:, 2] > 0) * 100:.2f} % of e- move along +z (with beam1), "
-           f"{np.mean(p2[:, 2] < 0) * 100:.2f} % of e+ along -z")
+    pick = np.random.default_rng(1).choice(len(ele), size=n, replace=False)   # same draw as prepare_events
+    flip = np.array([1.0, 1.0, -1.0, 1.0])
+    exact = np.array_equal(e2, ele[pick] * flip) and np.array_equal(p2, pos[pick] * flip)
+    hard_e, hard_p = e2[:, 3] > 1.0, p2[:, 3] > 1.0
+    fwd = np.all(e2[hard_e, 2] > 0) and np.all(p2[hard_p, 2] < 0)
+    back = np.sum(e2[:, 2] <= 0) + np.sum(p2[:, 2] >= 0)
+    report("B4", exact and fwd,
+           f"mirroring is an exact p_z sign flip: {exact}; every lepton above 1 GeV moves with its beam "
+           f"(e- along +z, e+ along -z): {fwd}; {back} of {2 * n} leptons go backwards, all below 1 GeV "
+           f"(very hard radiative events)" if fwd else
+           f"mirroring exact: {exact}; leptons above 1 GeV moving against their beam: "
+           f"{np.sum(e2[hard_e, 2] <= 0) + np.sum(p2[hard_p, 2] >= 0)}")
     tot2 = event_sums(e2.copy(), p2, ph2, phe2)
     dp2 = np.linalg.norm(tot2[:, :3], axis=1).max() / sqrt_s
     report("B5", dp2 < 1e-5, f"injected events in the WarpX frame: max |sum p| / sqrt(s) = {dp2:.2g} "
